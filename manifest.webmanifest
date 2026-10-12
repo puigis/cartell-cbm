@@ -1,21 +1,55 @@
 {
+  "id": "/",
   "name": "Cartell CBM",
   "short_name": "Cartell CBM",
-  "start_url": ".",
+  "description": "Cartells de campions del CB Monforte",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0d1a14",
   "theme_color": "#0b2e1d",
   "icons": [
     {
+      "src": "icona-48.png",
+      "sizes": "48x48",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icona-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icona-144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "icona-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icona-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icona-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icona-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
