@@ -537,13 +537,20 @@ $("sendPrint").addEventListener("click", async () => {
   try { doc = await makePdf(); } catch (e) { $("status").textContent = "No s'ha pogut crear el PDF. Comprova la connexió i torna-ho a provar."; return; }
   const blob = doc.output("blob");
   if (!mcp) {
-    // installed app / browser: download the PDF and open a pre-filled email
-    doc.save(name);
-    // open Gmail compose in the club account (not the computer's default mail program)
-    const gm = "https://mail.google.com/mail/?authuser=" + encodeURIComponent(CLUB_GMAIL) + "&view=cm&fs=1&to=" + encodeURIComponent(PRINT_TO.join(",")) + "&cc=" + encodeURIComponent(PRINT_CC.join(",")) + "&su=" + encodeURIComponent(PRINT_SUBJECT);
-    const w = window.open(gm, "_blank");
-    if (!w) location.href = gm;
-    $("status").textContent = "PDF descarregat. S'ha obert el Gmail del club amb els destinataris i l'assumpte: arrossega-hi el PDF i envia'l.";
+    // installed app / web: the site's own server sends it from the club Gmail
+    sending = true; $("sendPrint").disabled = true; $("status").textContent = "Enviant el PDF per correu…";
+    try {
+      const r = await fetch("api/print", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: name, pdf: await blobToB64(blob) }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) { $("status").textContent = "Enviat a " + PRINT_TO[0] + " (còpia a " + PRINT_CC[0] + ")."; return; }
+      $("status").textContent =
+        j.error === "not_configured" ? "Falta configurar el Gmail del club a Vercel (contrasenya d'aplicació). De moment, fes servir «Només descarrega el PDF»." :
+        j.error === "auth" ? "Gmail ha rebutjat la contrasenya d'aplicació. Revisa-la a Vercel." :
+        j.error === "bad_pdf" ? "El PDF no és vàlid o és massa gran. Escurça el text i torna-ho a provar." :
+        "No s'ha pogut enviar. Mira la carpeta Enviats de Gmail abans de tornar-ho a provar.";
+    } catch (e) {
+      $("status").textContent = "No hi ha connexió amb el servidor. Comprova internet i torna-ho a provar.";
+    } finally { sending = false; $("sendPrint").disabled = false; }
     return;
   }
   sending = true; $("sendPrint").disabled = true; $("status").textContent = "Enviant el PDF per correu…";
