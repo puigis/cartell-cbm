@@ -61,6 +61,7 @@ label output { float: right; color: var(--ink); font-variant-numeric: tabular-nu
 input[type=range] { width: 100%; accent-color: var(--gold); }
 button.reset { font: inherit; font-size: .85rem; justify-self: start; background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
 button.reset:hover { color: var(--ink); border-color: var(--gold); }
+button.secondary:disabled { opacity: .6; cursor: wait; }
 button.secondary { font: inherit; font-weight: 600; border-radius: 8px; padding: 12px 14px; cursor: pointer; background: transparent; color: var(--ink); border: 1px solid var(--gold); font-size: 1.02rem; }
 button.primary { font: inherit; font-weight: 600; border-radius: 8px; padding: 12px 14px; cursor: pointer; background: var(--gold); color: #1b1404; border: 1px solid var(--gold); font-size: 1.02rem; }
 button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -181,7 +182,8 @@ button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
       <div class="actions">
         <button type="submit" class="primary" id="dlImg">Descarrega la imatge</button>
-        <button type="button" class="secondary" id="dlPdf" hidden>Descarrega el PDF per imprimir</button>
+        <button type="button" class="secondary" id="sendPrint" hidden>Envia a imprimir (PDF B/N)</button>
+        <button type="button" class="reset" id="dlPdf" hidden>Només descarrega el PDF</button>
         <p class="status" id="status" aria-live="polite"></p>
       </div>
     </form>
@@ -506,7 +508,7 @@ async function makePdf() {
   const off = document.createElement("canvas"); off.width = W; off.height = H;
   drawPrint(off.getContext("2d"), W, H);
   const doc = new window.jspdf.jsPDF({ orientation: L ? "landscape" : "portrait", unit: "mm", format: "a4", compress: true });
-  doc.addImage(off.toDataURL("image/jpeg", .92), "JPEG", 0, 0, L ? 297 : 210, L ? 210 : 297);
+  doc.addImage(off.toDataURL("image/jpeg", .85), "JPEG", 0, 0, L ? 297 : 210, L ? 210 : 297);
   return doc;
 }
 $("dlPdf").addEventListener("click", async () => {
@@ -519,12 +521,54 @@ $("dlPdf").addEventListener("click", async () => {
   catch (err) { $("status").textContent = err && err.code === "declined" ? "Descàrrega cancel·lada." : "No s'ha pogut descarregar el PDF."; }
 });
 
+/* send the B/W PDF to the club's print mailbox */
+const PRINT_TO = ["monfortebillares@gmail.com"], PRINT_CC = ["puigis@msn.com"], PRINT_SUBJECT = "per imprimir - Isaac";
+let mcp = null;
+(async () => { try { mcp = await window.claude?.use?.("mcp"); } catch (e) { mcp = null; } })();
+function blobToB64(blob) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(blob); });
+}
+let sending = false;
+$("sendPrint").addEventListener("click", async () => {
+  if (sending) return;
+  const name = fileName().replace(/\.png$/, ".pdf");
+  let doc;
+  try { doc = await makePdf(); } catch (e) { $("status").textContent = "No s'ha pogut crear el PDF. Comprova la connexió i torna-ho a provar."; return; }
+  const blob = doc.output("blob");
+  if (!mcp) {
+    // installed app / browser: download the PDF and open a pre-filled email
+    doc.save(name);
+    location.href = "mailto:" + PRINT_TO.join(",") + "?cc=" + encodeURIComponent(PRINT_CC.join(",")) + "&subject=" + encodeURIComponent(PRINT_SUBJECT);
+    $("status").textContent = "PDF descarregat. S'obrirà el correu amb els destinataris i l'assumpte: adjunta-hi el PDF i envia'l.";
+    return;
+  }
+  sending = true; $("sendPrint").disabled = true; $("status").textContent = "Enviant el PDF per correu…";
+  try {
+    let attach;
+    let fileArgs = false;
+    try { fileArgs = !!(await mcp.listTools()).fileArgs; } catch (e) {}
+    if (fileArgs) attach = { content: { $file: { data: blob, name, type: "application/pdf" } }, filename: name, mimeType: "application/pdf" };
+    else attach = { content: await blobToB64(blob), filename: name, mimeType: "application/pdf" };
+    await mcp.callTool("Gmail", "send_message", { to: PRINT_TO, cc: PRINT_CC, subject: PRINT_SUBJECT, body: "", attachments: [attach] });
+    $("status").textContent = "Enviat a " + PRINT_TO[0] + " (còpia a " + PRINT_CC[0] + ").";
+  } catch (err) {
+    const c = err && err.code;
+    $("status").textContent =
+      c === "needs_reauth" ? "Cal tornar a connectar Gmail a Configuració → Connectors de Claude." :
+      c === "server_not_connected" || c === "selection_required" ? "Gmail no està connectat. Afegeix-lo a Configuració → Connectors de Claude." :
+      c === "not_in_manifest" || c === "approval_required" ? "No s'ha donat permís per enviar el correu. Torna a tocar el botó i accepta." :
+      c === "tool_error" ? "Gmail no ha pogut enviar el correu: " + (err.message || "error desconegut") :
+      c === "bad_request" ? "El PDF és massa gran per enviar-lo. Escurça el text o descarrega'l." :
+      "No sabem si s'ha enviat. Mira la carpeta Enviats de Gmail abans de tornar-ho a provar.";
+  } finally { sending = false; $("sendPrint").disabled = false; }
+});
+
 /* tabs */
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
   mode = b.dataset.mode;
   document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b ? "true" : "false"));
   $("formComp").hidden = mode !== "comp"; $("formInfo").hidden = mode !== "info";
-  $("dlPdf").hidden = mode !== "info";
+  $("dlPdf").hidden = mode !== "info"; $("sendPrint").hidden = mode !== "info";
   $("dlImg").textContent = mode === "info" ? "Descarrega la imatge (mòbil)" : "Descarrega la imatge";
   try { localStorage.setItem("cbm-mode", mode); } catch (e) {}
   draw();
