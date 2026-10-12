@@ -119,6 +119,10 @@ button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
             <input type="radio" name="vista" id="v-bn" value="print"><label for="v-bn">B/N (imprimir)</label>
           </div>
           <p class="hint">El PDF és un A4 en blanc i negre, sense fons fosc, per estalviar tinta.</p>
+          <div class="seg" role="radiogroup" aria-label="Orientació del PDF">
+            <input type="radio" name="orient" id="o-h" value="h" checked><label for="o-h">A4 horitzontal</label>
+            <input type="radio" name="orient" id="o-v" value="v"><label for="o-v">A4 vertical</label>
+          </div>
         </fieldset>
       </div>
 
@@ -266,10 +270,11 @@ function ball(c, x, y, r, col) {
 }
 
 let forceColor = false;
+function landscape() { return $("o-h").checked; }
 function printPreview() { return mode === "info" && !forceColor && $("v-bn").checked; }
 function draw() {
   if (mode !== "info") { if (cv.width !== 1080) cv.width = 1080; return drawComp(); }
-  if (printPreview()) { cv.width = 1080; cv.height = Math.round(1080 * 297 / 210); drawPrint(ctx, cv.width, cv.height); $("saveview").hidden = true; return; }
+  if (printPreview()) { const L = landscape(); cv.width = L ? 1527 : 1080; cv.height = L ? 1080 : 1527; drawPrint(ctx, cv.width, cv.height); $("saveview").hidden = true; return; }
   if (cv.width !== 1080) cv.width = 1080;
   drawInfo();
 }
@@ -435,7 +440,7 @@ function drawInfo() {
 
 /* printable A4 version: white page, black ink, colour crest, message framed */
 function drawPrint(c, W, H) {
-  const u = W / 1080, m = 80 * u, ink = "#111111";
+  const u = Math.min(W, H / 1.414) / 1080, m = 80 * u, ink = "#111111";
   c.save();
   c.letterSpacing = "0px";
   c.fillStyle = "#ffffff"; c.fillRect(0, 0, W, H);
@@ -497,11 +502,11 @@ function drawPrint(c, W, H) {
 
 async function makePdf() {
   if (!window.jspdf) throw new Error("nopdf");
-  const W = 1654, H = 2339; // A4 at 200 ppp
+  const L = landscape(), W = L ? 2339 : 1654, H = L ? 1654 : 2339; // A4 at 200 ppp
   const off = document.createElement("canvas"); off.width = W; off.height = H;
   drawPrint(off.getContext("2d"), W, H);
-  const doc = new window.jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
-  doc.addImage(off.toDataURL("image/jpeg", .92), "JPEG", 0, 0, 210, 297);
+  const doc = new window.jspdf.jsPDF({ orientation: L ? "landscape" : "portrait", unit: "mm", format: "a4", compress: true });
+  doc.addImage(off.toDataURL("image/jpeg", .92), "JPEG", 0, 0, L ? 297 : 210, L ? 210 : 297);
   return doc;
 }
 $("dlPdf").addEventListener("click", async () => {
