@@ -522,6 +522,7 @@ $("dlPdf").addEventListener("click", async () => {
 });
 
 /* send the B/W PDF to the club's print mailbox */
+const CLUB_GMAIL = "cbmonforters@gmail.com";
 const PRINT_TO = ["monfortebillares@gmail.com"], PRINT_CC = ["puigis@msn.com"], PRINT_SUBJECT = "per imprimir - Isaac";
 let mcp = null;
 (async () => { try { mcp = await window.claude?.use?.("mcp"); } catch (e) { mcp = null; } })();
@@ -538,8 +539,11 @@ $("sendPrint").addEventListener("click", async () => {
   if (!mcp) {
     // installed app / browser: download the PDF and open a pre-filled email
     doc.save(name);
-    location.href = "mailto:" + PRINT_TO.join(",") + "?cc=" + encodeURIComponent(PRINT_CC.join(",")) + "&subject=" + encodeURIComponent(PRINT_SUBJECT);
-    $("status").textContent = "PDF descarregat. S'obrirà el correu amb els destinataris i l'assumpte: adjunta-hi el PDF i envia'l.";
+    // open Gmail compose in the club account (not the computer's default mail program)
+    const gm = "https://mail.google.com/mail/?authuser=" + encodeURIComponent(CLUB_GMAIL) + "&view=cm&fs=1&to=" + encodeURIComponent(PRINT_TO.join(",")) + "&cc=" + encodeURIComponent(PRINT_CC.join(",")) + "&su=" + encodeURIComponent(PRINT_SUBJECT);
+    const w = window.open(gm, "_blank");
+    if (!w) location.href = gm;
+    $("status").textContent = "PDF descarregat. S'ha obert el Gmail del club amb els destinataris i l'assumpte: arrossega-hi el PDF i envia'l.";
     return;
   }
   sending = true; $("sendPrint").disabled = true; $("status").textContent = "Enviant el PDF per correu…";
