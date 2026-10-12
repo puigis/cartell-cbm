@@ -1,0 +1,21 @@
+{
+  "name": "Cartell CBM",
+  "short_name": "Cartell CBM",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0d1a14",
+  "theme_color": "#0b2e1d",
+  "icons": [
+    {
+      "src": "icona-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icona-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
