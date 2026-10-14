@@ -132,6 +132,9 @@ a.btn{text-decoration:none}
 .setup-body .name{flex:none}
 .setup-body{padding:0 14px 14px;display:flex;flex-direction:column;gap:10px}
 .setup-body p{margin:0;color:var(--muted);font-size:14px;max-width:62ch}
+#scriptSetup{display:flex;flex-direction:column;gap:10px}
+.setup-body p.club{color:var(--fg)}
+.setup-body p.club b{overflow-wrap:anywhere}
 .steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px;font-size:14px}
 .steps li{padding-left:4px}
 .steps li span{display:block;margin-bottom:6px}
@@ -163,6 +166,8 @@ a.btn{text-decoration:none}
   <details class="setup" id="setup">
     <summary><span class="setup-title">Enviament automàtic</span><span class="chip" id="autoChip">No configurat</span></summary>
     <div class="setup-body">
+      <p class="club" id="clubInfo" hidden>✓ Els correus s'envien sols des del Gmail del club <b id="clubFrom"></b> a <b id="clubTo"></b>. No cal configurar res.</p>
+      <div id="scriptSetup">
       <p>Perquè els correus s'enviïn sols, cal crear una vegada un petit programa (script) al teu compte de Google. Els correus sortiran del teu Gmail. Es fa des del mòbil en uns 5 minuts.</p>
       <ol class="steps">
         <li><span>Copia el codi de l'script. Ja porta una clau secreta només per a tu.</span>
@@ -180,6 +185,7 @@ a.btn{text-decoration:none}
         <button class="btn small ghost" id="resetScript" type="button">Desactivar</button>
       </div>
       <p class="help" id="setupMsg"></p>
+      </div>
     </div>
   </details>
 

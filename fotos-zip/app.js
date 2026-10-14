@@ -164,7 +164,11 @@ document.addEventListener('dragover',e=>e.preventDefault());
 document.addEventListener('drop',e=>{ e.preventDefault(); const f=[...(e.dataTransfer?.files||[])].filter(isMedia); if(f.length) addFiles(f); });
 
 /* ---------- Pas 1: reduir · Pas 2: repartir en ZIP de com a màxim 18 MB ---------- */
-const PART_LIMIT=15*1024*1024; // el correu admet 25 MB i l'adjunt creix un 33 % en enviar-se: 15 MB deixa marge
+// Mida màxima de cada ZIP: amb l'enviament del club (Vercel) com a màxim ~4,3 MB per petició;
+// amb l'script de Google, 15 MB (el correu admet 25 MB i l'adjunt creix un 33 % en enviar-se)
+const SERVER='https://cartell-cbm.vercel.app/api/fotos';
+let server=null; // {ok, from, to, maxBytes} quan l'enviament del club està disponible
+function partLimit(){ return server&&server.ok ? Math.min(server.maxBytes, 4.4*1024*1024)-150*1024 : 15*1024*1024; }
 function baseName(){
   let b=cleanName(($('zipName').value||'fotos').replace(/\.zip$/i,''))||'fotos';
   if(!b.includes(todayStr())) b+=`_${todayStr()}`;
@@ -190,7 +194,7 @@ async function buildParts(){
   const groups=[[]]; let acc=0;
   for(const r of ready){
     const sz=r.data.size+120;
-    if(acc+sz>PART_LIMIT && groups[groups.length-1].length){ groups.push([]); acc=0; }
+    if(acc+sz>partLimit() && groups[groups.length-1].length){ groups.push([]); acc=0; }
     groups[groups.length-1].push(r); acc+=sz;
   }
   const base=baseName(), parts=[];
@@ -305,9 +309,12 @@ function resposta(o) {
 }
 `;
 }
-const autoOn=()=>!!store.get('fz_url');
+const autoOn=()=>!!(server&&server.ok)||!!store.get('fz_url');
 function renderSetup(){
   const on=autoOn();
+  const club=!!(server&&server.ok);
+  $('clubInfo').hidden=!club; $('scriptSetup').hidden=club;
+  if(club){ $('clubFrom').textContent=server.from; $('clubTo').textContent=server.to; $('mailTo').value=server.to; $('mailTo').readOnly=true; }
   $('autoChip').textContent=on?'Activat':'No configurat'; $('autoChip').title=on&&store.get('fz_from')?`Envia des de ${store.get('fz_from')}`:''; $('autoChip').classList.toggle('on',on);
   $('scriptUrl').value=store.get('fz_url');
   $('resetScript').hidden=!on;
@@ -338,6 +345,21 @@ $('saveScript').addEventListener('click', async ()=>{
 });
 $('resetScript').addEventListener('click',()=>{ store.set('fz_url',''); renderSetup(); setupMsg('Enviament automàtic desactivat.'); });
 
+async function sendViaServer(p,N){
+  const m=mailInfo(p,N);
+  const qs=new URLSearchParams({nom:p.name,assumpte:m.subject,text:m.body});
+  const res=await fetch(`${SERVER}?${qs}`,{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:p.blob});
+  let j={}; try{ j=await res.json(); }catch(e){}
+  if(!res.ok||!j.ok){ const err=new Error(j.error||`http_${res.status}`); throw err; }
+  return j;
+}
+let wakeLock=null;
+async function keepAwake(on){
+  try{
+    if(on&&'wakeLock' in navigator){ wakeLock=await navigator.wakeLock.request('screen'); }
+    else if(!on&&wakeLock){ await wakeLock.release(); wakeLock=null; }
+  }catch(e){}
+}
 async function sendViaScript(p,N){
   const m=mailInfo(p,N);
   const zip=await toBase64(p.blob);
@@ -356,31 +378,35 @@ $('sendMail').addEventListener('click', async ()=>{
   const to=$('mailTo').value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){ setStatus("L'adreça de correu no és vàlida. Revisa-la.",true); $('mailTo').focus(); return; }
   store.set('fz_to',to);
-  setBusy(true);
+  setBusy(true); keepAwake(true);
   let r;
   try{ r=await buildParts(); }
-  catch(e){ setStatus('Error en crear el ZIP. Si són moltes fotos, prova-ho en tandes més petites.',true); setBusy(false); return; }
+  catch(e){ setStatus('Error en crear el ZIP. Si són moltes fotos, prova-ho en tandes més petites.',true); setBusy(false); keepAwake(false); return; }
 
   if(!autoOn()){
-    renderParts(r); setStatus(summary(r)); setBusy(false); return;
+    renderParts(r); setStatus(summary(r)); setBusy(false); keepAwake(false); return;
   }
   const N=r.parts.length; let sent=0, last=null;
   for(const p of r.parts){
     setStatus(`Enviant correu ${p.index} de ${N}: ${p.name} (${fmtSize(p.blob.size)})…`);
     $('prog').value=(p.index-1)/N*100;
-    try{ last=await sendViaScript(p,N); p.mailed=true; sent++; }
+    try{ last=await (server&&server.ok ? sendViaServer(p,N) : sendViaScript(p,N)); p.mailed=true; sent++; }
     catch(e){
-      const why = e.message==='clau' ? "la clau de l'script no coincideix (torna a copiar el codi a l'script)"
-        : (e instanceof TypeError ? 'no hi ha connexió amb l\'script' : e.message);
+      const why = ({
+        clau:"la clau de l'script no coincideix (torna a copiar el codi a l'script)",
+        auth:"el Gmail del club no accepta la contrasenya d'aplicació (cal revisar-la a Vercel)",
+        not_configured:"l'enviament del club no està configurat a Vercel",
+        too_large:"el ZIP és massa gran", bad_zip:"el ZIP no és vàlid", send_failed:"Gmail no ha pogut enviar el correu"
+      })[e.message] || (e instanceof TypeError ? 'no hi ha connexió a internet' : e.message);
       const pending={...r,parts:r.parts.filter(x=>!x.mailed)};
       renderParts(pending);
       $('partsHelp').textContent="Aquests no s'han pogut enviar sols. Pots tornar-ho a provar amb «Enviar per correu» o enviar-los a mà: desa'l i obre el correu.";
       setStatus(`S'han enviat ${sent} de ${N} correus. Error: ${why}.`,true);
-      setBusy(false); return;
+      setBusy(false); keepAwake(false); return;
     }
   }
   setStatus(`Fet! ${N>1?`${N} correus enviats`:'Correu enviat'} a ${to}. ${summary(r)}`+(last&&typeof last.queden==='number'?` · Avui en queden ${last.queden}.`:''));
-  setBusy(false);
+  setBusy(false); keepAwake(false);
 });
 
 /* ---------- fotos compartides des de la Galeria (Compartir → Fotos a ZIP) ---------- */
@@ -402,6 +428,13 @@ async function loadShared(){
 try{ const t=localStorage.getItem('fz_to'); if(t) $('mailTo').value=t; }catch(e){}
 renderSetup();
 if(!autoOn()) $('setup').open=true;
+async function checkServer(){
+  try{
+    const j=await (await fetch(SERVER,{cache:'no-store'})).json();
+    server=j; renderSetup(); if(j.ok) $('setup').open=false; else if(!autoOn()) $('setup').open=true;
+  }catch(e){ /* sense connexió: es mantindrà l'script si n'hi ha */ }
+}
+checkServer();
 $('zipName').value='';
 refresh();
 loadShared();

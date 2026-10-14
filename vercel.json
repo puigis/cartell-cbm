@@ -1,3 +1,6 @@
 {
-  "functions": { "api/print.js": { "maxDuration": 20 } }
+  "functions": {
+    "api/print.js": { "maxDuration": 20 },
+    "api/fotos.js": { "maxDuration": 30 }
+  }
 }
