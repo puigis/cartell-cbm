@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fotos a ZIP</title>
+<meta name="theme-color" content="#1f7a4d">
+<meta name="description" content="Tria fotos, redueix-les i envia-les en ZIP per correu.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{color-scheme:light}
+html,body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+
+/* Fotos a ZIP — app instal·lable. Layout: contact sheet — picker band on top, grid of frames, sticky action bar at the bottom */
+:root{
+  --bg:#f3f4f1; --surface:#ffffff; --fg:#1c211d; --muted:#626b64; --line:#d9ddd6;
+  --accent:#1f7a4d; --accent-fg:#ffffff; --sel:#1f7a4d; --warn:#b4471f;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121512; --surface:#1b201c; --fg:#e7ebe6; --muted:#97a198; --line:#2c332d;
+  --accent:#4cc48a; --accent-fg:#0d1a12; --sel:#4cc48a; --warn:#f08a62; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121512; --surface:#1b201c; --fg:#e7ebe6; --muted:#97a198; --line:#2c332d;
+  --accent:#4cc48a; --accent-fg:#0d1a12; --sel:#4cc48a; --warn:#f08a62; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:max(20px,env(safe-area-inset-top,0px)) 340px}
+.wrap{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,6vw,40px);line-height:1.05;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.lede{margin:6px 0 0;color:var(--muted);max-width:58ch}
+.pick{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font:600 15px var(--body);border-radius:10px;padding:12px 18px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:46px}
+.btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent}
+/* El selector real cobreix tot el botó: el toc arriba directament a l'input (més fiable dins d'apps) */
+.picker{position:relative;overflow:hidden}
+.picker input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:200px}
+.picker:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+.empty .picker{margin-top:6px}
+.help{font-size:13px;color:var(--muted);margin:0;max-width:60ch}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:14px}
+.count{font-family:var(--mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.links{display:flex;gap:4px;flex-wrap:wrap}
+.link{background:none;border:0;color:var(--accent);font:500 14px var(--body);padding:6px 8px;border-radius:6px;cursor:pointer}
+.link:focus-visible{outline:2px solid var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.frame{position:relative;aspect-ratio:1;max-width:100%;border-radius:8px;overflow:hidden;background:var(--line);border:0;padding:0;cursor:pointer}
+.frame img,.frame video{width:100%;height:100%;object-fit:cover;display:block;transition:transform .12s, opacity .12s}
+.frame[aria-pressed="false"] img,.frame[aria-pressed="false"] video{opacity:.45}
+.frame[aria-pressed="true"]{box-shadow:inset 0 0 0 3px var(--sel)}
+.frame[aria-pressed="true"] img,.frame[aria-pressed="true"] video{transform:scale(.9);border-radius:4px}
+.frame:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.tick{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.25);display:grid;place-items:center}
+.frame[aria-pressed="true"] .tick{background:var(--sel);border-color:var(--sel)}
+.tick svg{width:14px;height:14px;fill:none;stroke:var(--accent-fg);stroke-width:3;opacity:0}
+.frame[aria-pressed="true"] .tick svg{opacity:1}
+.badge{position:absolute;left:6px;bottom:6px;font:500 10px var(--mono);background:rgba(0,0,0,.6);color:#fff;padding:2px 5px;border-radius:4px}
+.empty{border:2px dashed var(--line);border-radius:14px;padding:36px 20px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:8px;align-items:center}
+.empty strong{color:var(--fg);font-family:var(--display);font-size:20px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);
+  padding-top:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bar-in{max-width:960px;margin:0 auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.name{flex:1 1 180px;min-width:0;display:flex;align-items:center;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);padding-right:10px}
+.name input{flex:1;min-width:0;border:0;background:transparent;color:var(--fg);font:500 15px var(--body);padding:11px 12px}
+.name input:focus{outline:none}
+.name:focus-within{border-color:var(--accent)}
+.name span{font:500 13px var(--mono);color:var(--muted)}
+.sizes{width:100%;display:flex;gap:6px;flex-wrap:wrap;align-items:center;border:0;margin:0;padding:0}
+.sizes legend{font:500 12px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;float:left;margin-right:4px}
+.sizes label{position:relative}
+.sizes input{position:absolute;opacity:0;width:1px;height:1px}
+.sizes span{display:inline-flex;flex-direction:column;border:1.5px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer;font:600 13px var(--body);line-height:1.25}
+.sizes span small{font:400 11px var(--body);color:var(--muted)}
+.sizes input:checked + span{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.sizes input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.mail{width:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mail .name{flex:1 1 200px;padding-right:0;padding-left:10px}
+.name .pre{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.status{width:100%;font-size:13px;color:var(--muted);min-height:1em;margin:0}
+.status.err{color:var(--warn)}
+progress{width:100%;height:6px;accent-color:var(--accent)}
+@media (prefers-reduced-motion: reduce){.frame img,.frame video{transition:none}}
+
+.small{min-height:40px;padding:8px 14px;font-size:14px}
+a.btn{text-decoration:none}
+.parts{border:1.5px solid var(--accent);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface)}
+.parts h2{font-family:var(--display);font-size:20px;margin:0}
+.parts p{margin:0;color:var(--muted);font-size:14px}
+.parts ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.part{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.part-head{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.part-n{font:600 12px var(--mono);background:var(--accent);color:var(--accent-fg);border-radius:6px;padding:2px 7px}
+.part-name{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.part-size{font:500 12px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.part-actions{display:flex;flex-wrap:wrap;gap:8px}
+.part.done .part-n::after{content:" ✓"}
+.part.fail .part-n{background:var(--warn)}
+.cell{position:relative}
+.cell .frame{width:100%}
+.star{position:absolute;left:4px;top:4px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:grid;place-items:center}
+.star:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.cell.is-first .star{background:#e3a72f;color:#1c211d}
+.first-badge{display:none;position:absolute;left:0;right:0;bottom:0;font:600 10px var(--mono);letter-spacing:.06em;background:#e3a72f;color:#1c211d;padding:3px 0;text-align:center}
+.cell.is-first .first-badge{display:block}
+.cell.is-first .frame[aria-pressed="true"]{box-shadow:inset 0 0 0 3px #e3a72f}
+.first-box{display:flex;gap:12px;align-items:center;background:var(--surface);border:1.5px solid #e3a72f;border-radius:14px;padding:10px}
+.first-box img{width:96px;height:96px;object-fit:cover;border-radius:8px;background:var(--line);flex:none}
+.first-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.first-label{font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.first-name{font-weight:600;overflow-wrap:anywhere}
+.first-hint{font-size:13px;color:var(--muted)}
+.setup{border:1.5px solid var(--line);border-radius:14px;background:var(--surface)}
+.setup summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;font-weight:600}
+.setup summary::-webkit-details-marker{display:none}
+.setup summary::after{content:"▾";color:var(--muted)}
+.setup[open] summary::after{content:"▴"}
+.setup-title{flex:1}
+.chip{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.05em;border-radius:999px;padding:3px 9px;background:var(--line);color:var(--muted)}
+.chip.on{background:var(--accent);color:var(--accent-fg)}
+.setup-body .name{flex:none}
+.setup-body{padding:0 14px 14px;display:flex;flex-direction:column;gap:10px}
+.setup-body p{margin:0;color:var(--muted);font-size:14px;max-width:62ch}
+.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px;font-size:14px}
+.steps li{padding-left:4px}
+.steps li span{display:block;margin-bottom:6px}
+.steps a{color:var(--accent);font-weight:600}
+.steps code,.help code{font:500 12px var(--mono);background:var(--bg);padding:1px 4px;border-radius:4px}
+#scriptCode{width:100%;height:140px;font:12px var(--mono);background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Fotos a ZIP</h1>
+    <p class="lede">Tria fotos de la galeria, redueix-les i envia-les en ZIP per correu. Tot es fa al mòbil: les fotos no es pugen enlloc. També pots compartir fotos des de la Galeria cap a aquesta app.</p>
+  </header>
+
+  <div class="pick">
+    <span class="btn primary picker">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>
+      Afegir fotos
+      <input id="pickPhotos" type="file" accept="image/*,video/*" multiple aria-label="Afegir fotos">
+    </span>
+    <span class="btn picker">
+      Triar arxius
+      <input id="pickFiles" type="file" multiple aria-label="Triar arxius de qualsevol carpeta">
+    </span>
+    <button class="btn ghost" id="clearAll" type="button" hidden>Buidar</button>
+  </div>
+
+  <details class="setup" id="setup">
+    <summary><span class="setup-title">Enviament automàtic</span><span class="chip" id="autoChip">No configurat</span></summary>
+    <div class="setup-body">
+      <p>Perquè els correus s'enviïn sols, cal crear una vegada un petit programa (script) al teu compte de Google. Els correus sortiran del teu Gmail. Es fa des del mòbil en uns 5 minuts.</p>
+      <ol class="steps">
+        <li><span>Copia el codi de l'script. Ja porta una clau secreta només per a tu.</span>
+          <button class="btn small" id="copyScript" type="button">Copiar el codi</button>
+          <textarea id="scriptCode" readonly hidden aria-label="Codi de l'script"></textarea></li>
+        <li><span>Obre <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a> amb el compte de Google <b>des del qual vols enviar</b> (si surt un altre compte, toca la foto de perfil i canvia'l). Si es veu malament, al menú ⋮ de Chrome marca «Lloc per a ordinadors».</span></li>
+        <li><span>Esborra el text que hi ha, enganxa el codi i toca la icona de desar (disquet).</span></li>
+        <li><span>Toca <b>Implementa</b> → <b>Implementació nova</b> → engranatge ⚙ → <b>Aplicació web</b>. A «Executa com a» posa <b>Jo</b> i a «Qui hi té accés» posa <b>Qualsevol usuari</b>. Toca <b>Implementa</b>.</span></li>
+        <li><span>Toca <b>Autoritza l'accés</b>, tria el teu compte, toca <b>Configuració avançada</b> → <b>Ves a … (no segur)</b> → <b>Permet</b>. L'avís surt perquè l'script és teu i Google no l'ha revisat.</span></li>
+        <li><span>Copia l'<b>URL de l'aplicació web</b> (acaba en <code>/exec</code>) i enganxa-la aquí:</span></li>
+      </ol>
+      <label class="name" for="scriptUrl" style="padding-left:10px"><span class="pre">URL</span><input id="scriptUrl" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="URL de l'script"></label>
+      <div class="part-actions">
+        <button class="btn primary" id="saveScript" type="button">Desar i provar</button>
+        <button class="btn small ghost" id="resetScript" type="button">Desactivar</button>
+      </div>
+      <p class="help" id="setupMsg"></p>
+    </div>
+  </details>
+
+  <div class="toolbar" id="toolbar" hidden>
+    <span class="count" id="count">0 de 0 seleccionades</span>
+    <div class="links">
+      <button class="link" id="selAll" type="button">Seleccionar totes</button>
+      <button class="link" id="selNone" type="button">Cap</button>
+    </div>
+  </div>
+
+  <div class="empty" id="empty">
+    <strong>Encara no hi ha fotos</strong>
+    <span>Toca «Afegir fotos». Al mòbil s'obrirà la galeria; al PC, l'explorador d'arxius. Pots afegir-ne més d'un cop.</span>
+    <p class="help">Si «Afegir fotos» no mostra la carpeta que vols, prova «Triar arxius».</p>
+  </div>
+
+  <div class="first-box" id="firstBox" hidden>
+    <img id="firstImg" alt="">
+    <div class="first-info">
+      <span class="first-label">Primera foto · rètol del local</span>
+      <span class="first-name" id="firstName"></span>
+      <span class="first-hint" id="firstHint"></span>
+    </div>
+  </div>
+
+  <div class="grid" id="grid" aria-label="Fotos. Toca una foto per marcar-la o desmarcar-la; toca ★ per fer-la la primera."></div>
+
+  <section class="parts" id="parts" hidden aria-labelledby="partsTitle">
+    <h2 id="partsTitle">Correus per enviar</h2>
+    <p id="partsHelp">Per a cada ZIP: desa'l i obre el correu. L'adreça i l'assumpte ja hi seran; només cal adjuntar el ZIP de Descàrregues i prémer Enviar.</p>
+    <ol id="partsList"></ol>
+  </section>
+</div>
+
+<div class="bar">
+  <div class="bar-in">
+    <fieldset class="sizes">
+      <legend>Mida</legend>
+      <label><input type="radio" name="q" id="qOrig" value="orig"><span>Original<small>sense canvis</small></span></label>
+      <label><input type="radio" name="q" id="qMid" value="mid" checked><span>Mitjana<small>màx. 450 KB per foto</small></span></label>
+      <label><input type="radio" name="q" id="qSmall" value="small"><span>Petita<small>màx. 200 KB per foto</small></span></label>
+    </fieldset>
+    <label class="name" for="zipName" style="padding-left:10px"><span class="pre">Nom</span><input id="zipName" value="" placeholder="fotos" aria-label="Nom de l'arxiu ZIP"><span>.zip</span></label>
+    <button class="btn" id="makeZip" type="button" disabled>Descarregar</button>
+    <div class="mail">
+      <label class="name" for="mailTo"><span class="pre">Per a</span><input id="mailTo" type="email" inputmode="email" autocomplete="email" value="ipuigl@bcn.cat" aria-label="Correu del destinatari"></label>
+      <label class="name" for="mailSubject"><span class="pre">Assumpte</span><input id="mailSubject" placeholder="Igual que el nom del ZIP" aria-label="Assumpte"></label>
+      <button class="btn primary" id="sendMail" type="button" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+        Enviar per correu
+      </button>
+    </div>
+    <progress id="prog" max="100" value="0" hidden></progress>
+    <p class="status" id="status" role="status"></p>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
