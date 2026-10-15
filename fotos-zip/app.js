@@ -193,7 +193,8 @@ async function buildParts(){
       const small=await shrink(i.file,preset);
       if(small){ data=small; fname=jpgName(fname); }
     }
-    if(i===first) fname='00_RETOL_'+fname; // surt la primera en qualsevol visor de ZIP
+    // Nom de cada foto = camp Nom + número (1 = rètol); es manté l'extensió (.jpg, .png, .mp4…)
+    { const d=fname.lastIndexOf('.'); const ext=d>0?fname.slice(d).toLowerCase():''; fname=`${cleanName(nomLocal())||'foto'} ${n}${ext}`; }
     after+=data.size; ready.push({data,fname,date:new Date(i.file.lastModified||Date.now())});
   }
   const groups=[[]]; let acc=0;
