@@ -229,11 +229,11 @@ a.btn{text-decoration:none}
       <label><input type="radio" name="q" id="qMid" value="mid" checked><span>Mitjana<small>màx. 450 KB per foto</small></span></label>
       <label><input type="radio" name="q" id="qSmall" value="small"><span>Petita<small>màx. 200 KB per foto</small></span></label>
     </fieldset>
-    <label class="name" for="zipName" style="padding-left:10px"><span class="pre">Nom</span><input id="zipName" value="" placeholder="fotos" aria-label="Nom de l'arxiu ZIP"><span>.zip</span></label>
+    <label class="name" for="zipName" style="padding-left:10px"><span class="pre">Nom</span><input id="zipName" value="" placeholder="Nom del local" autocomplete="off" aria-label="Nom del local"><span>.zip</span></label>
     <button class="btn" id="makeZip" type="button" disabled>Descarregar</button>
     <div class="mail">
       <label class="name" for="mailTo"><span class="pre">Per a</span><input id="mailTo" type="email" inputmode="email" autocomplete="email" value="ipuigl@bcn.cat" aria-label="Correu del destinatari"></label>
-      <label class="name" for="mailSubject"><span class="pre">Assumpte</span><input id="mailSubject" placeholder="Igual que el nom del ZIP" aria-label="Assumpte"></label>
+      <label class="name" for="mailSubject"><span class="pre">Assumpte</span><input id="mailSubject" placeholder="Igual que el Nom" aria-label="Assumpte"></label>
       <button class="btn primary" id="sendMail" type="button" disabled>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
         Enviar per correu

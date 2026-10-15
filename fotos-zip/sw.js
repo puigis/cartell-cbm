@@ -1,5 +1,5 @@
 // Fotos a ZIP — service worker: funciona sense connexió i rep fotos compartides des de la Galeria
-const VERSION = 'fz-v6';
+const VERSION = 'fz-v7';
 const ASSETS = ['./', './index.html', './app.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

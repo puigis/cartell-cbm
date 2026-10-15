@@ -115,7 +115,7 @@ function renderFirst(){
   $('firstHint').textContent = (firstItem===f) ? 'Triada per tu. Anirà la primera del ZIP.' : 'Per defecte és la primera. Toca ★ a la foto del rètol per canviar-la.';
 }
 function autoName(){
-  if(nameTouched) return;
+  return; // el camp Nom es deixa buit: l'omple el Kurro amb el nom del local
   const first=getFirst();
   if(!first){ $('zipName').value=''; $('zipName').placeholder=`fotos_${todayStr()}`; return; }
   const n=first.file.name, d=n.lastIndexOf('.');
@@ -169,6 +169,11 @@ document.addEventListener('drop',e=>{ e.preventDefault(); const f=[...(e.dataTra
 const SERVER='https://cartell-cbm.vercel.app/api/fotos';
 let server=null; // {ok, from, to, maxBytes} quan l'enviament del club està disponible
 function partLimit(){ return server&&server.ok ? Math.min(server.maxBytes, 4.4*1024*1024)-150*1024 : 15*1024*1024; }
+function nomLocal(){ return $('zipName').value.replace(/\.zip$/i,'').replace(/\s+/g,' ').trim(); }
+function requireNom(){
+  if(nomLocal()) return true;
+  setStatus('Escriu el nom del local al camp «Nom» abans d\'enviar.',true); $('zipName').focus(); return false;
+}
 function baseName(){
   let b=cleanName(($('zipName').value||'fotos').replace(/\.zip$/i,''))||'fotos';
   if(!b.includes(todayStr())) b+=`_${todayStr()}`;
@@ -220,6 +225,7 @@ function saveFile(p){
 /* ---------- Descarregar ---------- */
 $('makeZip').addEventListener('click', async ()=>{
   if(busy||!items.some(i=>i.selected)) return;
+  if(!requireNom()) return;
   setBusy(true);
   try{
     const r=await buildParts();
@@ -232,7 +238,7 @@ $('makeZip').addEventListener('click', async ()=>{
 /* ---------- Enviar per correu ---------- */
 function mailInfo(p,N){
   // Assumpte = nom del local (el mateix nom que el ZIP); si hi ha més d'un correu: «part 1/2»
-  const to=$('mailTo').value.trim(), subj0=$('mailSubject').value.trim()||baseName();
+  const to=$('mailTo').value.trim(), subj0=$('mailSubject').value.trim()||nomLocal();
   const subject=N>1?`${subj0} - part ${p.index}/${N}`:subj0;
   const body=N>1
     ? `Hola,\n\nT'envio les fotos en ${N} correus perquè no cabien en un de sol. Aquesta és la part ${p.index}/${N}: ${p.name}, amb ${p.count} fotos (${fmtSize(p.blob.size)}).\n`
@@ -375,6 +381,7 @@ function toBase64(blob){
 
 $('sendMail').addEventListener('click', async ()=>{
   if(busy||!items.some(i=>i.selected)) return;
+  if(!requireNom()) return;
   const to=$('mailTo').value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){ setStatus("L'adreça de correu no és vàlida. Revisa-la.",true); $('mailTo').focus(); return; }
   store.set('fz_to',to);
